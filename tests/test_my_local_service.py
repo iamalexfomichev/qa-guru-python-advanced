@@ -1,5 +1,5 @@
-import os
 
+import pytest
 import requests
 
 def test_health_check(app_url):  # Проверка работоспособности сервиса
@@ -22,17 +22,45 @@ def test_user_data(app_url): #Проверка данных пользовате
 
 def test_invalid_user(app_url):     # Проверка на несуществующего пользователя
 
-    #url = "http://localhost:8000/api/users/23"
     response = requests.get(f"{app_url}/api/users/23")
     assert response.status_code == 404
     assert response.json() == {'detail': 'User not found'}
 
 
 def test_users_count_matches_per_page(app_url):   # Проверка, что количество пользователей соответствует количеству на странице
+
     response = requests.get(f"{app_url}/api/users?page=2")
     assert response.status_code == 200
     data = response.json()
     assert len(data["data"]) == data["per_page"]
+
+@pytest.mark.parametrize("per_page, expected_pages", [
+    (5, 5),   # 22 / 5 = 4.4 => 5 страниц
+    (6, 4),   # 22 / 6 = 3.67 => 4 страницы
+    (8, 3),   # 22 / 8 = 2.75 => 3 страницы
+    (10, 3),  # 22 / 10 = 2.2 => 3 страницы
+])
+def test_total_pages_for_different_sizes(app_url, per_page, expected_pages):
+    response = requests.get(f"{app_url}/api/users", params={"page": 1, "per_page": per_page})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_pages"] == expected_pages
+
+def test_different_data_on_different_pages(app_url):
+    response1 = requests.get(f"{app_url}/api/users", params={"page": 1, "per_page": 5})
+    response2 = requests.get(f"{app_url}/api/users", params={"page": 2, "per_page": 5})
+
+    assert response1.status_code == 200
+    assert response2.status_code == 200
+
+    data1 = response1.json()["data"]
+    data2 = response2.json()["data"]
+
+    assert data1 != data2
+    # Убедимся, что ни один id не повторяется
+    ids1 = {user["id"] for user in data1}
+    ids2 = {user["id"] for user in data2}
+    assert ids1.isdisjoint(ids2)
 
 
 def test_create_user(app_url):   # Проверка создания пользователя

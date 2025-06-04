@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException, Response, Query
 from datetime import datetime
 from uuid import uuid4
-#from service_data import user_list
 import json
 import os
 from pydantic import BaseModel
