@@ -1,25 +1,61 @@
-from fastapi import FastAPI, Request, HTTPException, Response
+from fastapi import FastAPI, Request, HTTPException, Response, Query
 from datetime import datetime
 from uuid import uuid4
-from service_data import user_list, single_user
+#from service_data import user_list
+import json
+import os
+from pydantic import BaseModel
+from typing import List
+
+# Construct the absolute path to the JSON file
+file_path = os.path.join(os.path.dirname(__file__), "service data", "user_list.json")
+
+# Load the user data
+with open(file_path, "r") as file:
+    USERS = json.load(file)
+
+# Определяем модель пользователя
+class User(BaseModel):
+    id: int
+    email: str
+    first_name: str
+    last_name: str
+    avatar: str
+
+class PaginatedUsers(BaseModel):
+    page: int
+    per_page: int
+    total: int
+    total_pages: int
+    data: List[User]
+
+# Создаем экземпляр FastAPI
 app = FastAPI()
 
+@app.get("/api/users", response_model=PaginatedUsers)
+def get_users(page: int = Query(1, ge=1), per_page: int = Query(6, ge=1, le=100)):
+    total = len(USERS)
+    total_pages = (total + per_page - 1) // per_page
+    if page > total_pages:
+        raise HTTPException(status_code=404, detail="Page not found")
+    start = (page - 1) * per_page
+    end = start + per_page
+    return {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
+        "data": USERS[start:end],
+    }
 
 @app.get("/api/users/{user_id}")
 def get_user(user_id: int):
-    users = user_list()["data"]
-
-    for user in users:
+    for user in USERS:
         if user["id"] == user_id:
             return {"data": user}
 
     raise HTTPException(status_code=404, detail="User not found")
 
-
-
-@app.get("/api/users")
-def get_user_list():
-    return user_list()
 
 
 @app.post("/api/users")
@@ -59,6 +95,10 @@ async def register_user(request: Request):
 @app.delete("/api/users/{user_id}")
 def delete_user(user_id: int):
     return Response(status_code=204)
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":
