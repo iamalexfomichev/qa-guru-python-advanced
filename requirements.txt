@@ -1,0 +1,17 @@
+fastapi==0.110.0
+uvicorn==0.29.0
+pydantic==2.7.1
+requests==2.32.3
+
+# Для тестов
+pytest==8.2.1
+
+# Работа с PostgreSQL
+psycopg2-binary==2.9.9
+sqlmodel
+
+# ORM
+SQLAlchemy==2.0.30
+
+# Пагинация
+fastapi-pagination==0.12.14
