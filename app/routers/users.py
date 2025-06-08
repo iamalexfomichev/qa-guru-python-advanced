@@ -1,60 +1,47 @@
 from datetime import datetime
+from http import HTTPStatus
+from typing import Iterable
 
-from fastapi import APIRouter, Request, HTTPException, Response, Query
+from app.database import users
+from fastapi import APIRouter, Request, HTTPException, Response
 from uuid import uuid4
-#from app.main import USERS
-from app.data.load_users import load_user_data
-from app.models.models import PaginatedUsers
+
+#from app.data.load_users import load_user_data
+from app.models.models import User, UserCreate, UserUpdate
 
 router = APIRouter(prefix="/api/users")
-USERS = load_user_data()
-@router.get("",response_model=PaginatedUsers)
-def get_users(page: int = Query(1, ge=1), per_page: int = Query(6, ge=1, le=100)):
-    total = len(USERS)
-    total_pages = (total + per_page - 1) // per_page
-    if page > total_pages:
-        raise HTTPException(status_code=404, detail="Page not found")
-    start = (page - 1) * per_page
-    end = start + per_page
-    return {
-        "page": page,
-        "per_page": per_page,
-        "total": total,
-        "total_pages": total_pages,
-        "data": USERS[start:end],
-    }
+#USERS = load_user_data()
+@router.get("", status_code=HTTPStatus.OK)
+def get_users() -> Iterable[User]:
+    return users.get_users()
 
-@router.get("/{user_id}")
-def get_user(user_id: int):
-    for user in USERS:
-        if user["id"] == user_id:
-            return {"data": user}
+@router.get("/{user_id}", status_code=HTTPStatus.OK)
+def get_user(user_id: int) -> User:
+    if user_id < 1:
+        return HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail="Invalid user")
+    user = users.get_user(user_id)
 
-    raise HTTPException(status_code=404, detail="User not found")
+    if user is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="User not found")
+    return user
 
 
 
-@router.post("")
-async def create_user(request: Request):
-    payload = await request.json()
-    return {
-        "name": payload.get("name"),
-        "job": payload.get("job"),
-        "id": str(uuid4()),
-        "createdAt": datetime.utcnow().isoformat()
-    }
+@router.post("", status_code=HTTPStatus.CREATED)
+def create_user(user: User) -> User:
+    UserCreate.model_validate(user)
+    return users.create_user()
 
+@router.put("/{user_id}", status_code=HTTPStatus.OK)
+def update_user(user_id: int, user: User) -> User:
+    if user_id < 1:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail="Invalid user id")
+    UserUpdate.model_validate(user.model_dump())
+    return users.update_user(user_id, user)
 
-@router.put("/{user_id}")
-async def update_user(user_id: int, request: Request):
-    payload = await request.json()
-    return {
-        "name": payload.get("name"),
-        "job": payload.get("job"),
-        "updatedAt": datetime.utcnow().isoformat()
-    }
-
-
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", status_code=HTTPStatus.OK)
 def delete_user(user_id: int):
-    return Response(status_code=204)
+    if user_id < 1:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail="Invalid user id")
+    users.delete_user(user_id)
+    return {"message": "User deleted"}

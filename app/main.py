@@ -1,7 +1,7 @@
 import dotenv
 dotenv.load_dotenv()
 
-from app.data.database import create_db_and_tables
+from app.database.engine import create_db_and_tables
 from fastapi import FastAPI, Request, HTTPException, Response, Query
 from datetime import datetime
 
@@ -21,7 +21,8 @@ app = FastAPI()
 app.include_router(status.router)
 app.include_router(users.router)
 # Load the user data
-USERS = load_user_data
+
+USERS = load_user_data()
 
 
 
